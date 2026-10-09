@@ -1,8 +1,10 @@
 # collectiegebouw-muziek-in-context
 
-**Van muziekbibliotheek naar publieksbeleving**: een interactieve publieksinstallatie voor het
-Collectiegebouw van Beeld & Geluid, waarin bezoekers op een visuele en intuïtieve manier door de
-muziekcollectie bladeren, met de tijd en de kranten van toen als context (Muziekweb en Delpher).
+**Van muziekbibliotheek naar publieksbeleving**: een interactieve publieksinstallatie voor
+[Fonos](https://www.beeldengeluid.nl/fonos), de nieuwe locatie van Beeld & Geluid aan de Kerkbrink in
+Hilversum, waar de grootste muziekcollectie van Nederland tot leven komt. Bezoekers bladeren er op een
+visuele en intuïtieve manier door de muziekcollectie, met de tijd en de kranten van toen als context
+(Muziekweb en Delpher).
 Deze repository bevat wat specifiek is voor deze installatie: het profiel, de koppelingen en de vormgeving.
 De gedeelde componenten staan in [collection-experience-core](https://github.com/immersive-library-experience/collection-experience-core).
 
