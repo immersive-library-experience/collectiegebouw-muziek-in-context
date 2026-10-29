@@ -1,7 +1,7 @@
 # collectiegebouw-muziek-in-context
 
 **Van muziekbibliotheek naar publieksbeleving**: een interactieve publieksinstallatie voor
-[Fonos](https://www.beeldengeluid.nl/fonos), de nieuwe locatie van Beeld & Geluid aan de Kerkbrink in
+[Fonos](https://fonos.nl), de nieuwe locatie van Beeld & Geluid aan de Kerkbrink in
 Hilversum, waar de grootste muziekcollectie van Nederland tot leven komt. Bezoekers bladeren er op een
 visuele en intuïtieve manier door de muziekcollectie, met de tijd en de kranten van toen als context
 (Muziekweb en Delpher).
