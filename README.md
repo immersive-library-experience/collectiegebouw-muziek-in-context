@@ -15,6 +15,10 @@ zodat andere openbare bibliotheken en erfgoedinstellingen het kunnen overnemen.
 
 Penvoerder: Beeld & Geluid. Technische ontwikkeling: TangibleApp, met Trebla Technology.
 
+## Inhoud en bouwen
+
+Wat er tot nu toe gepubliceerd is, en hoe je het bouwt: [PUBLICATIE.md](PUBLICATIE.md).
+
 ## Licentie
 
 Projectresultaten onder CC BY 4.0 ([LICENSE-CC-BY-4.0.md](LICENSE-CC-BY-4.0.md)); broncode daarnaast onder

@@ -1,0 +1,236 @@
+// Styling van de B&G-wand. Wordt automatisch opgepakt (theme.json naast profile.json) en door
+// het venster HERLADEN zodra je opslaat — geen herstart, geen rebuild. T herlaadt met de hand.
+//
+// Kleuren zijn "#RRGGBB" of "#AARRGGBB" — alpha EERST, zoals de #4C000000-overlay van de
+// oorspronkelijke installatie. Commentaar en komma's aan het eind mogen: dit bestand is om in te
+// werken, en de waarde die een kleur eerder had is de nuttigste aantekening die je kunt bewaren.
+//
+// Alles wat hier niet staat houdt de ingebouwde waarde uit Theme.fs. Een sleutel WEGHALEN en
+// opslaan zet die kleur dus terug naar de standaard.
+{
+  "fonts": {
+    // Fonos: één strak grotesk, vet voor koppen (handover §1: Geist Sans, Regular + Bold). Geist is
+    // per gebruiker geïnstalleerd (Geist-*.ttf, github.com/vercel/geist-font, OFL); op de kioskmachine
+    // voor alle gebruikers installeren. Een teken dat Geist niet heeft (muzieksymbolen, cyrillisch)
+    // komt vanzelf uit een systeemfont dat het wel heeft (glyph-fallback in Rendering.fs).
+    // "serif" is de stem van de tijdlijn (mastheads, koppen, verhaal, jaarlabels): in de Fonos-stijl
+    // ook de grotesk. Terug naar "Georgia" voor het krantenfacsimile-gevoel.
+    "serif": "Geist",
+    "sans": "Geist",
+    "mono": "Consolas"
+  },
+
+  // ── Hoe groot en hoe vol ────────────────────────────────────────────────────
+  "layout": {
+    "albumScale": 1.5,        // hoezen t.o.v. de gebakken maat (1 = zoals gebakken)
+    // Het Fonos-selectie-echo: vierkante ringen die uit het midden van het album naar buiten reizen
+    // (stijlfilm 0:06-0:09): scherpe buitenrand, naar binnen uitdovend in het donker, aan het eind
+    // alleen de hairline.
+    // 1 = aan; ringen/interval/leeftijd/reikwijdte sturen de burst (zie Theme.fs voor de bereiken).
+    "echo": 1,
+    "echoRings": 4,
+    "echoInterval": 0.28,     // s tussen twee ringen
+    "echoLife": 1.6,          // s per ring: uitdijen, verdunnen, vervagen
+    "echoSpread": 0.9,        // reikwijdte als deel van de item-maat
+    "echoFloor": 0,           // donkere vloer van de ring: 0 = doorzichtig (de wand blijft zichtbaar), 1 = naar zwart zoals de stijlfilm
+    // Fonos-fotobehandeling: een smal randje in de familiekleur langs twee randen (links+boven of
+    // rechts+onder, per item), scherp aan de buitenkant en naar binnen uitdovend in het beeld; op het
+    // getilde werk, het zijpaneel en (naar gewicht) de risers van de spotlight.
+    "overlay": 1,
+    "overlayStrength": 0.9,   // dekking van het randje (0..1)
+    "overlayReach": 0.14,     // breedte van het randje als deel van de korte zijde (0.14 = smal, 0.3 = breed)
+    "overlayByKind": 0,       // 0 = elk item kiest zijn familie op zijn id (roze en blauw gemengd); 1 = hoezen blauw, tekstkaarten roze
+    // tijdvakken en koppen als massieve blokken in de familiekleur met zwarte tekst (de posters); 0 = uit.
+    // In het zijpaneel: maker + jaar als chip in de familiekleur.
+    "cardBlock": 0.92,
+    // Delpher-pagina's (achter het artikel en als krantenkaart) in duotone: inkt pageDuotoneDark, papier
+    // pageDuotoneLight (kleuren hieronder). 0 = de scan zoals hij is, 1 = volledig, ertussen een mengsel.
+    "pageDuotone": 0.85,
+    // de posterstem: 1 = uitnodiging ("raak de ruit aan") en de titel in het zijpaneel vet in de grotesk;
+    // 0 = de tijdlijnstem (uitnodiging cursief in de serif)
+    "displaySans": 1,
+    // Logo-taal: het FONOS-woordmerk wordt live getekend uit zijn geometrie (geen bitmap, geen blur).
+    // De badge rechtsonder, met één vorm marge rondom zoals de brand manual voorschrijft.
+    "logoCorner": 0.9,        // dekking van de badge; 0 = geen badge
+    "logoHeight": 0.035,      // hoogte als deel van de schermhoogte (breedte = 5x)
+    "logoWeight": 0.5,        // gradiëntgewicht: 0 = Light, 0.5 = Standard, 1 = Heavy
+    "logoLevels": 1,          // 1 = enkele lichtlijn, 2 = dubbel, 3 = drievoudig
+    // Attract-modus: de logovormen groot achter de wand, afgesneden door de randen (de lay-outs
+    // uit de brand manual), langzaam ademend in de twee familiekleuren. Aantal levels; 0 = uit.
+    "attractRings": 2,
+    "attractRingAlpha": 0.3,  // dekking van die vormen
+    "newsScale": 0.72,        // krantenkaarten t.o.v. een hoes
+    "movementScale": 0.58,    // tijdvakmarkeringen t.o.v. een hoes
+    // Van de krantenkaarten, gerangschikt op belang (grote gebeurtenissen en landelijke kranten
+    // voorop, zie Density.fs), staat dit deel op de wand: thuis, en na newsZoomForAll x inzoomen.
+    // De rest is geparkeerd. 1 = alles.
+    "newsShareHome": 0.10,
+    "newsShareZoomed": 0.25,
+    "newsZoomForAll": 3.0,
+    // Minder drukte: deel van de albums (de belangrijkste eerst, per decennium gespreid; 1 = alle),
+    // de grote publieke gebeurtenissen aan of uit, de tijdvakmarkeringen aan of uit.
+    "albumShare": 1.0,
+    "newsEvents": 1,
+    "movementShow": 1,
+    // Live ontspanning (proef): 1 = de wand zet zich bij elke zoom zelf recht. Elk item hangt
+    // aan een veer naar zijn gebakken plek; wat op het scherm overlapt duwt elkaar weg, een
+    // krantenkaart (massa relaxCardMass) wijkt voor een hoes (massa 1). Nooit terwijl er een
+    // vinger op het glas is. R zet alles terug op de bake. 0 = uit: de bake zoals hij is.
+    "relax": 1,
+    "relaxSpring": 0.02,      // trek naar de gebakken plek per stap (deel van de afstand)
+    "relaxXStiffness": 3.0,   // de x-veer is zoveel sterker: x is tijd en mag maar weinig meegeven
+    "relaxOverlap": 0.05,     // zoveel van het kleinste item mag bedekt blijven
+    "relaxCardMass": 0.25,
+    "relaxDamping": 0.7,      // 0 = elke duw meteen (schokkerig), 0.7 = de beweging bouwt op en sterft uit over enkele stappen (glijdt)
+    // De stromingen als stromen (concept 3c): 1 = aan. Albums mikken op het midden van hun
+    // eigen stroming, een gloedband en een wazige draad lopen erachter, de koppen staan in rijen
+    // bovenaan. streamOrder 0 = de zwaarste stroming in het midden, 1 = de langste (een rivier).
+    "streams": 1,
+    "streamOrder": 1,
+    "streamSigmaYears": 2.2,  // uitsmeren van het gewicht over de jaren
+    "streamThreshold": 0.35,  // daaronder heeft een stroming hier geen inhoud: de band stopt
+    "streamFill": 1.15,        // hoogte van de rivier t.o.v. de gebakken layout
+    "streamGlow": 0.6,        // dekking van de gloedband
+    "streamThread": 0.8,      // dekking van de draad door de albums
+    "streamThreadWidth": 1.5,  // kern van de gloeidraad in pixels; de gloed eromheen schaalt mee (fel dichtbij, zacht verder weg)
+    "streamGap": 0.6,         // ruimte tussen twee banden, t.o.v. een hoes
+    "streamThreadGlow": 1.5,  // bereik van het licht van de draad (1 = ongeveer tien draadbreedtes)
+    "streamTakeover": 2.0,    // een stroming neemt het midden over als haar rang zoveel keer hoger is dan die van de huidige
+    // Spotlight: elk item komt eens per spotlightPeriod naar voren, spotlightSeconds lang, en groeit
+    // daarbij spotlightGrow keer; de ontspanning drukt de buren weg en laat ze daarna terugvloeien.
+    "spotlightPeriod": 120,
+    "spotlightSeconds": 12,
+    "spotlightGrow": 1.4,
+    "spotlightLively": 1.0,   // zoveel sneller loopt de spotlight als iemand dichtbij staat (1 = twee keer zo snel)
+    // Attract-modus (alleen in installatiemodus, na een minuut zonder aanraking): 1 = om de 18-30 s
+    // vult een kaart of hoes negen seconden het scherm; 0 = alleen de langzame drift door de tijd.
+    "attractShowcase": 0,
+    "attractLiftSeconds": 6,  // showcase uit: een interessant item opent zichzelf ter plekke (lift) en sluit na zoveel seconden
+    // De lift (selectiemethode "lift" / "lift-lidar" in profile.json renderer "select"): het gekozen item
+    // groeit ter plekke tot titel, artiest, jaartal en beschrijving in de hoes passen (kaarten: alle tekst
+    // leesbaar); de buren wijken. De volgende interactie elders laat het weer krimpen.
+    "liftSeconds": 0.35,      // duur van het groeien (en van het krimpen)
+    "liftMinShare": 0.2,      // hoogte minstens dit deel van de schermhoogte ...
+    "liftMaxShare": 0.8,      // ... en hoogstens dit deel (langere beschrijving wordt afgekapt)
+    "liftBodyPx": 0,          // tekstgrootte van de beschrijving in pixels; 0 = een zestigste van de schermhoogte
+    "liftDwellGrow": 2.0,     // zover groeit het item onder een stilstaande vinger al tijdens de dwell (1 = niet)
+    "liftVeil": 0.4,          // donkerte van de waas over de geliftte hoes (0 = hoes ongewijzigd, 1 = zwart)
+    // Pannen met vinger of lidar, gedempt: de wand volgt de vinger met een vertraging en nooit sneller
+    // dan panMaxStep per 16 ms, zodat een gekke beweging zich uitsmeert; één stap groter dan
+    // panJumpReject is geen vinger (spookpunt) en wordt genegeerd. Een flick is begrensd en dooft snel.
+    "panFollow": 0.35,        // deel van de resterende pan dat de wand per 16 ms aflegt (1 = vastgeplakt aan de vinger)
+    "panMaxStep": 40,         // grootste stap van de wand per 16 ms, in pixels
+    "panJumpReject": 200,     // één pan-stap groter dan dit (px) wordt weggegooid
+    "flickMaxSpeed": 1500,    // snelheidsgrens van een flick, px/s
+    "flickDecay": 0.85,       // demping van de flick per 16 ms (lager = sneller uit)
+    // De radar als human joystick (docs/beeldengeluid-human-joystick.md). Toets J wisselt de modus live.
+    "joystickMode": 3,        // 0 = meeleunen (oud), 1 = walk (jouw stap = stap van de wand), 2 = joystick (uit het midden loopt de tijd), 3 = hybride
+    "joystickGain": 1.5,      // walk: wandbreedtes per raambreedte lopen
+    "joystickRoll": 400,      // joystick: pixels per seconde aan de rand van het raam
+    "joystickBand": 0.7,      // hybride: middelste deel van het raam waar lopen schuift; daarbuiten rolt de tijd
+    "joystickDeadband": 0.06, // joystick: dode zone naast het midden (deel van het raam)
+    "joystickMaxSpeed": 0.25, // sneller dan dit (raambreedtes/s) is een passant: geen besturing, wel golf en zuil
+    "zoneNear": 0.45,         // proximity (0 ver .. 1 ruit) waar de joystick-zone begint; de ruitzone begint bij presenceHandover (profile.json)
+    "presenceZoomNear": 1.5,  // zoveel dichterbij komt het beeld over de joystick-zone heen, rond het jaar voor je neus (de tijdlijn binnenlopen)
+    "presenceZoomDamping": 1.5, // seconden waarin de nabijheidszoom tot rust komt (eigen veer; het ankerpunt volgt even traag)
+    "lensWidth": 320,         // halve breedte van de lens rond jouw lijn, px
+    "lensGrow": 1.6,          // vergroting in het hart van de lens (de golf die met je meeloopt; de buren wijken)
+    "guideMin": 0.6,          // items met minstens dit belang krijgen de ring / de lift (nieuws: Density-rang, albums: belang of verhaal)
+    "guideGap": 0.8,          // seconden tussen twee gids-lifts
+    "guideLiftSeconds": 1.5,  // zo lang blijft een gids-lift staan
+    "columnWidth": 120,       // breedte van de lichtzuil bij de ruit, px (verder weg smaller)
+    "columnAlpha": 0.9,       // helderheid van de zuil (licht dat optelt over de hoezen)
+    "trailSeconds": 4,        // naleeftijd van het spoor langs de onderrand
+    "detailNear": 0.7,        // detail met de afstand: dit deel van het verborgen nieuws komt terug als iemand dichtbij staat; in de lens wordt een kop het hele knipsel
+    "depthDim": 0.3,          // diepte in de golf: zoveel dimt de wand buiten de lens
+    "depthLift": 0.25,        // ... en zoveel licht op wat erin staat
+    "soundVolume": 0.4,       // geluid door de ruit bij gids-tegel, selectie en hand-over; 0 = stil
+    "soundStyle": 0,          // 0 = lage bromtoon 110 Hz (standaard), 1 = tonen in de toonhoogte van het jaar (laag = vroeg, hoog = laat), 2 = bloob (druppel)
+    "soundAuto": 0,           // 1 = ook geluid bij wat de wand zelf doet (gids-tegel, attract-lift, hand-over); 0 = alleen bij een klik of dwell
+    "streamFocusLift": 1.0    // de stroming waar je voor staat licht op: zoveel feller bij volle nabijheid
+  },
+
+  // ── Getekende glyphs uit de huisstijl (Lava, 260908): de cijfers zetten de grote jaartallen
+  //    (stroomwand, jaar boven de bezoeker), de iconen gaan in de chrome (terug-pijl) en op de
+  //    hoes-stand-in (lp). Paden relatief aan dit bestand; sleutel weghalen = terug naar type/getekend.
+  "assets": {
+    "digits": "assets/fonos/cijfers",
+    "icons": "assets/fonos/iconen"
+  },
+
+  "colors": {
+    // ── Fonos-palet (stijlbeelden oktober 2026): nachtblauw tot zwart, licht dat beweegt in twee
+    //    families, roze (#FFA1EB / #FF00BC / #49003A) en blauw (#05C8F0 / #0F238C / #071349), plus wit ──
+    "background": "#071349",      // nachtblauw; "#000000" is het zwarte alternatief
+    "panel": "#F0071349",
+    "strip": "#4C000000",
+    "text": "#FFFFFF",
+    "dimText": "#B4FFFFFF",       // wit, gedimd (brand manual: tekst alleen zwart of wit op een Fonos-kleur)
+    "accent": "#FF00BC",          // de actiekleur (chips, knoppen, lijnen)
+    "accentText": "#FFFFFF",      // tekst die anders de actiekleur kreeg (veldregels, maker/jaar, facetkoppen): wit
+    "echo": "#05C8F0",            // de selectie-echo-ringen: lichtblauw
+
+    // ── Krantenkaarten: witte kop op nachtblauw, de categoriechip in roze ──────────
+    "newsChip": "#FF00BC",
+    "paperInk": "#FFFFFF",        // kop en chiptekst
+    "paperDate": "#B4FFFFFF",
+    "movementText": "#FFFFFF",    // tijdvakken zonder blok; mét blok (cardBlock) zwart op de familiekleur
+
+    // ── De tijdlijn: jaartallen, lijnen, ringen van gids en dwell, de rand van het getilde werk ──
+    "gold": "#FFA1EB",
+    "paper": "#FFFFFF",
+    "paperDim": "#B4FFFFFF",
+    "toen": "#FFA1EB",
+    "nu": "#05C8F0",
+    "frame": "#0F238C",
+
+    // ── Stand-ins voor items zonder beeld ─────────────────────────────────────────
+    "bookVellumFill": "#0F238C",
+    "bookVellumInk": "#FFFFFF",
+    "bookBoardFill": "#49003A",
+    "bookBoardInk": "#FFFFFF",
+    "articleTints": ["#0F238C", "#132B9C", "#0B1C70", "#1A2FA8", "#0F238C", "#49003A"],
+    "articleText": "#FFFFFF",
+    "sleeve": "#0F238C",
+    "vinyl": "#071349",
+    "vinylLabel": "#FF00BC",
+    "sleeveText": "#FFFFFF",
+    "periodTintWarm": "#49003A",
+    "periodTintCool": "#0F238C",
+    "placeholder": "#0F238C",
+    "coverBorder": "#0F238C",
+
+    // ── De stromingen: tien banden uit de twee families, om en om, zodat de rivier roze en blauw is ──
+    "streamTints": ["#05C8F0", "#FF00BC", "#3B7BFF", "#FFA1EB", "#00E0FF", "#B000A0", "#2F55D8", "#FF4FD1", "#7FDFFF", "#FF8AE2"],
+    // de gradiënt en gloedrand op het getilde werk en de risers, en de kleurblokken: per item één van deze
+    "overlayTints": ["#05C8F0", "#FF00BC"],
+
+    // ── Chrome: panelen, lijnen, chips, knoppen ───────────────────────────────────
+    "chrome": "#071349",
+    "hairline": "#0F238C",
+    "closeRing": "#FFFFFF",
+    "chipFill": "#C80F238C",
+    "inkOnGold": "#000000",       // zwarte tekst op de kleurblokken (de posters) en op de chip in het zijpaneel
+    "pageDuotoneDark": "#071349",  // de inkt van de Delpher-pagina's in duotone (pageDuotone); "#49003A" = de donkerroze variant
+    "pageDuotoneLight": "#FFFFFF", // het papier; "#FFA1EB" maakt er een roze poster van
+    "logo": "#FFA1EB",            // het woordmerk in de hoek (licht roze; de attract-vormen volgen overlayTints)
+    "returnChip": "#E1FF00BC",
+    "returnChipText": "#FFFFFF",
+
+    // ── Focus-chrome: de lidar-focuslijn in roze, de lichtzuil van de radar in lichtblauw ──
+    "focusGlow": "#FF00BC",
+    "focusWarm": "#05C8F0",
+    "hintFill": "#071349",        // ook de waas over het getilde werk (liftVeil)
+    "hintTitle": "#FFFFFF",
+    "hintSub": "#FFFFFF",
+    "hintBody": "#FFFFFF",
+    "label": "#FFFFFF",
+    "pill": "#071349"
+  },
+
+  // ── Uit: lijnen (of andere veldwaarden) die niet op de wand staan. De stylingkamer schakelt ze;
+  //    de albums en tijdvakken van zo'n lijn verdwijnen en haar stroom valt weg. Leeg = alles aan.
+  "hidden": {
+    "themalijn": []
+  }
+}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builder for the Beeld & Geluid demo bundle: a curated set of music albums linked to
+       news items from the time of release (the Muziekweb × Delpher concept). Demo data:
+       albums from the JazzSwarm prototype dataset; news items are FICTIONAL placeholders
+       written in vintage newspaper style, clearly labelled as such — they demonstrate the
+       interaction concept without using rights-encumbered Delpher content. Covers are
+       fetched once from the public Cover Art Archive and cached in source/covers. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\collection-experience-core\src\CollectionKit.Core\CollectionKit.Core.csproj" />
+    <ProjectReference Include="..\..\..\collection-experience-core\src\CollectionKit.Processing\CollectionKit.Processing.csproj" />
+    <ProjectReference Include="..\..\..\collection-experience-core\src\CollectionKit.Embeddings\CollectionKit.Embeddings.csproj" />
+  </ItemGroup>
+
+</Project>

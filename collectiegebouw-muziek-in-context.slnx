@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/importers/">
+    <Project Path="importers/CollectionKit.Import.Delpher/CollectionKit.Import.Delpher.csproj" />
+    <Project Path="importers/CollectionKit.Import.MusicNews/CollectionKit.Import.MusicNews.csproj" />
+  </Folder>
+</Solution>

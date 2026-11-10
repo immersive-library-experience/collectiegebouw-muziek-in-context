@@ -1,0 +1,64 @@
+{
+  "_doc": "Lidar touch service, installation ETALAGE: the shop window of Beeld & Geluid (production). Millimetres in the scan plane as the visitor sees it: x to the right along the glass, y down from the sensor. Keys starting with _ are comments. See src/CollectionKit.Lidar/README.md. The desk set-up is lidar.42.json; which one a machine uses stands in active.install.",
+  "_status": "NOT MEASURED YET. The geometry below comes from the drawing (B&G/Etalage/Lidar scanvlak etalage - ruit 109x57): lidar against the ceiling at about 3.4 m, a 42 inch picture behind the middle pane at 1.51 to 2.04 m. On site: set the port, read zeroAngleDeg and clockwise off the live view, measure the real picture (pictureMm), then run the tap calibration - it replaces roi and calibration and makes the mask and the reference.",
+  "schema": 1,
+
+  "_port": "The COM port of the lidar on the shop window pc: CollectionKit.Lidar.exe --probe --port COMx tells whether an S3 answers there.",
+  "_port": "auto = the service finds the lidar itself (the CP210x adapter first, then the other ports, never a CH340 radar); a named port that is not there is looked for on the others too.",
+  "port": "auto",
+  "baud": 1000000,
+  "scanMode": "UltraDense",
+  "_rpm": "600 = 10 Hz (0,1125 deg per sample) ... 1200 = 20 Hz (0,225 deg); 0 keeps the device default. At 1.4 to 2.1 m a finger of 15 mm is 2 to 4 returns at 900 rpm and can drop to ONE at 1200: not faster than 900 here, and try 600 if the far corners flicker.",
+  "rpm": 900,
+
+  "_mount": "zeroAngleDeg = the lidar angle that points straight down; clockwise = lidar angles run clockwise as the visitor sees them (top of the sensor towards the visitor). Read both off the live view.",
+  "mount": { "zeroAngleDeg": 0, "clockwise": true },
+
+  "_surfaces": "One per screen. From the drawing: a 42 inch picture of 930 x 523 mm centred below the sensor, its top edge 1360 mm under it. For the variant with two screens against the mullion: a second surface with its own name, roi and osc port. calibration = [a,b,c,d,e,f] from the tap procedure (u = a*x + b*y + c, v = d*x + e*y + f), null = straight from the roi. pictureMm = the real width and height of the picture when you measured it (null = unknown): the calibration then says how far its own measure is off. With a calibration the surface IS the picture (0 <= u, v <= 1); the roi is then only the upright box around it. What returned by itself in the hands-off phase of the calibration is kept in lidar.etalage.mask.json beside this file and stays out of the detection.",
+  "surfaces": [
+    {
+      "name": "scherm",
+      "roi": { "xMin": -465, "xMax": 465, "yMin": 1360, "yMax": 1890 },
+      "calibration": null,
+      "pictureMm": null,
+      "osc": "127.0.0.1:7401"
+    }
+  ],
+
+  "_tracker": "A finger becomes a pointer: returns on a surface (further than minRangeMm from the sensor: 30 = just outside the S3's own housing of 55.6 mm; its accuracy is guaranteed from 50 on) -> reflections out -> groups (clusterGapMm) -> pointer. A group's width counts the step of the sweep at its range (first to last return plus one step), so minWidthMm means the same finger nearby and far away; minPoints is the noise guard (one return is no object). The nearest surface wins: a return within shadowWidthMm beside a nearer object and more than nearBandMm behind it is a reflection, not a second finger (0 = rule off); a blob is where its returns nearest the sensor are. See README.md.",
+  "tracker": {
+    "clusterGapMm": 25,
+    "minPoints": 2,
+    "minWidthMm": 3,
+    "maxWidthMm": 160,
+    "minQuality": 0,
+    "minRangeMm": 30,
+    "nearBandMm": 45,
+    "shadowWidthMm": 60,
+    "confirmScans": 2,
+    "confirmPointsFast": 5,
+    "releaseScans": 2,
+    "maxJumpMm": 150,
+    "smoothing": 0.5,
+    "moveDeadbandMm": 15,
+    "stuckSeconds": 20
+  },
+
+  "_alignment": "Is the scan plane free? Static returns inside a surface are counted per window. Spread over at least spreadSectors of 8 strips across the width or down the height: most likely the plane runs into the screen or the glass (a tilted sensor). In one place: an object. Shown in the live view, in the heartbeat (align, roi_static) and as the alarm lidar_blocked after alarmAfterSeconds.",
+  "alignment": { "cellMm": 25, "windowSeconds": 10, "staticShare": 0.8, "spreadSectors": 5, "clearBelow": 3, "alarmAfterSeconds": 300 },
+
+  "_calibration": "Tap calibration on http://localhost:<view port>/calibrate : targets on the screen, a finger through the glass, least squares. It writes the surface's calibration and roi into this file (the old file is kept as .bak-<time>) and the service reloads it. points = 5 or 9; a target is taken when the finger rests: the first settleScans scans of a finger are not measured (it is still finding its place), then the last holdScans scans have to lie within stableMm of their median in at least steadyShare of them; the place kept is the median of those that do, what strays is left out; marginMm widens the roi during a session. A session starts with maskSeconds of hands off: cells of maskCellMm that return by themselves in maskShare of the scans (the cap of a mullion, a cable, a flicker) are masked with their neighbours and can never take a target; above maxMaskedShare of the surface the plane is not free and the session stops. A new target takes no finger for armSeconds, and never one within minSeparationMm of where an earlier target was taken.",
+  "calibration": { "points": 9, "holdScans": 16, "settleScans": 4, "stableMm": 30, "steadyShare": 0.85, "marginMm": 60, "timeoutSeconds": 60, "maskSeconds": 2, "maskCellMm": 25, "maskShare": 0.1, "maxMaskedShare": 0.3, "armSeconds": 0.6, "minSeparationMm": 80 },
+
+  "_reference": "Has the sensor moved? The static world outside the surfaces (frame, plinth, pavement, walls) is captured once into lidar.etalage.reference.json: on the live view, or by itself when a calibration is saved. Every window is laid over it; the best rotation and shift say where the sensor went, and toleranceMm is how far a touch on a surface may land off before it counts as moved. Heartbeat: ref, ref_mm. Alarm lidar_moved after alarmAfterSeconds.",
+  "reference": { "binDeg": 0.25, "windowSeconds": 10, "minRangeMm": 150, "maxRangeMm": 6000, "maxSpreadMm": 40, "minShare": 0.6, "excludeMarginMm": 100, "toleranceMm": 15, "minMatch": 0.4, "alarmAfterSeconds": 60 },
+
+  "_stream": "Between the revolutions the pointer keeps moving, so that a drag does not stutter at 10 to 20 measurements a second: rateHz = moves per second that are sent (0 = off: one move per revolution); delayScans = how far behind the clock the line through the last two measurements is read: 1 = glides between them (smooth, never overshoots, one revolution behind the finger), 0 = runs ahead (on the finger, overshoots when it stops); blendMs = how fast the correction fades in when a measurement does not lie on the line. A lifted finger keeps its course until the tracker reports the up (releaseScans + 1 revolutions), so that the consumer still sees moves just before the up and can make its flick from them. Read on every reload.",
+
+  "stream": { "rateHz": 60, "delayScans": 0.5, "blendMs": 60 },
+
+  "view": { "port": 7410 },
+  "_telemetry": "Directory for the heartbeat and alarm rows of the monitoring contract; empty = off. A relative path counts from this file: profiles/beeldengeluid/telemetry, the same directory the kiosk script gives the Explorer. Read at start only.",
+  "telemetry": "telemetry",
+  "instance": "lidar"
+}

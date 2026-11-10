@@ -1,0 +1,27 @@
+{
+  "name": "Beeld & Geluid — muziek & krantencontext (demo)",
+  "bundlePath": "data",
+  "defaultLayout": "timeline",
+  "searchProvider": "basic",
+  "pluginAssemblies": [],
+  "renderer": {
+    "journey": "swarm",
+    "itemScale": "0.7",
+    "openingPeriod": "1967-2010",
+    "oscPort": "7401",
+    "select": "lift",
+    "articleBrowser": "true",
+    "articleBrowserIdle": "120",
+    "articleBrowserNote": "een krantenartikel wordt in zijn geheel gelezen op Delpher zelf, in een eigen venster over de wand (KB-doorlink, alleen kb.nl/delpher.nl, geen downloads, sluit na articleBrowserIdle seconden zonder bediening); false = systeembrowser.",
+    "selectNote": "lift = de kioskbediening: tik/dwell licht het werk op en tilt het uit de wand, nog een tik opent het schermvullend mét verhaal en QR, een tik waar dan ook sluit het weer (geen kleine knoppen). panel = zijpaneel (muis/desktop).",
+    "presenceDamping": "1.0",
+    "presenceLean": "220",
+    "presenceZoom": "0.06",
+    "presenceHandover": "0.85",
+    "presenceHold": "20",
+    "presenceZone": "1.2,0.3,2.5",
+    "presenceNote": "radar: presenceLean = px dat de tijdlijn meeleunt naar waar je staat (per kant), presenceZoom = fractie dichterbij bij naderen, presenceHandover = proximity (0 ver .. 1 bij het glas, zie zone.yMin/yMax in radar.42.json) vanaf waar de lidar bedient en het lichaam niets meer stuurt (hysterese 0,1), presenceHold = seconden rust na elk gebaar, presenceZone = halve breedte, dichtste y, verste y van de radarzone in meters (zoals zone in radar.42.json) voor het plaatsen van de andere personen. Alleen bij opstarten gelezen.",
+    "note":"journey swarm = JazzSwarm-gedrag: klik = zijpaneel met groot beeld + volledige info; op de tijdlijn blijft de ordening staan, op de swarm-layout hercentreert het netwerk. itemScale < 1 geeft ademruimte tussen de kaarten. Layouts: timeline (x = jaar), swarm (force-directed), ruimte3d (UMAP 3D met perspectief) — wissel met L. window: \"windowed\" schakelt fullscreen uit voor ontwikkeling."
+  }
+}
+

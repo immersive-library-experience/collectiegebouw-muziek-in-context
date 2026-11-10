@@ -1,0 +1,16 @@
+collectiegebouw-muziek-in-context.slnx
+importers/CollectionKit.Import.Delpher/CollectionKit.Import.Delpher.csproj
+importers/CollectionKit.Import.Delpher/Pages.cs
+importers/CollectionKit.Import.Delpher/Program.cs
+importers/CollectionKit.Import.MusicNews/CollectionKit.Import.MusicNews.csproj
+importers/CollectionKit.Import.MusicNews/Program.cs
+profiles/beeldengeluid/lidar.etalage.json
+profiles/beeldengeluid/profile.json
+profiles/beeldengeluid/theme.json
+tools/check_bundle_ids.py
+tools/delpher_paper_titles.py
+tools/delpher_pick.py
+tools/discogs_keys.py
+tools/hoes_koppelingen.py
+tools/musicbrainz_keys.py
+tools/muziekweb_keys.py
