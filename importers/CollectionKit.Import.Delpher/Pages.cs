@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -14,14 +15,26 @@ using System.Xml.Linq;
 /// Rights: Delpher's newspapers after 1879 are protected; viewing and own research are allowed,
 /// a public installation needs the KB's and the rights holders' consent (docs/beeldengeluid-mvp.md).
 /// Nothing here goes into git; the demo machine builds the bundle from this cache.
+///
+/// The article's own zones (overleg KB 12-11-2026: of an article free of rights ONLY the article
+/// may be readable, not what stands around it): the rectangles Delpher's own viewer outlines,
+/// read from its page view (/nl/pres/view/pageocr, the attribute data-zones per article, in the
+/// pixels of the ALTO page). Only with --delpher-zones: not an official API, and Delpher's
+/// robots.txt forbids that page explicitly ("Disallow: /*/pageocr"), so until the KB has answered
+/// the zones come from the cache (source/pages/xml/*.pageocr.html, fetched once on 12-11-2026) and
+/// are used for the examples the KB is asked to validate only. Out of those:
+/// source/pages/zones/&lt;urn&gt;.jpg, the hi-res page black everywhere but in the article's zones.
 /// </summary>
 static class Pages
 {
-    sealed record Entry(string Urn, string Page, string File, float[]? Rect, int Blocks, int Matched);
+    /// <param name="Zones">the article's zones on its page as Delpher's viewer outlines them
+    /// (x y w h as fractions of the page); null = not known</param>
+    sealed record Entry(string Urn, string Page, string File, float[]? Rect, int Blocks, int Matched, float[][]? Zones = null);
     sealed record Hit(string Url);
 
     /// <param name="force">redo every article (the page images are kept, the locating is done again)</param>
-    public static async Task<int> Run(string source, bool force, HttpClient http)
+    /// <param name="zones">the article zones from Delpher's page view (see above); off by default</param>
+    public static async Task<int> Run(string source, bool force, HttpClient http, bool zones = false)
     {
         var json = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
         var dir = Path.Combine(source, "pages");
@@ -55,6 +68,11 @@ static class Pages
             {
                 var known = byUrn.TryGetValue(urn, out var previous) ? previous.Page : null;
                 var entry = await Fetch(http, urn, file, dir, hires, thumbs, known);
+                // locating again (--force) keeps the article's zones: they come from Delpher's viewer,
+                // not from the locating, and stay until the KB has said whether we may use them
+                // (Titus, 16-11-2026); dropped only when the article turns out to be on another page
+                if (previous?.Zones is { } kept && previous.Page == entry.Page)
+                    entry = entry with { Zones = kept };
                 byUrn[urn] = entry;
                 done++;
                 var where = entry.Rect is null ? "geen knip gevonden"
@@ -69,7 +87,99 @@ static class Pages
             File.WriteAllText(indexPath, JsonSerializer.Serialize(byUrn.Values.OrderBy(e => e.Urn).ToList(), json));
         }
         Console.WriteLine($"{done} pagina's opgehaald, {failed} mislukt, {byUrn.Count} in {indexPath}");
+
+        if (!zones)
+            return failed == 0 ? 0 : 1;
+        // the article's own zones and the page masked to them (one page view per page, cached)
+        var zonesDir = Path.Combine(dir, "zones");
+        Directory.CreateDirectory(zonesDir);
+        int withZones = 0, masked = 0;
+        foreach (var entry in byUrn.Values.ToList())
+        {
+            try
+            {
+                var found = force || entry.Zones is null ? await ZonesOf(http, entry, dir) : entry.Zones;
+                if (found is null || found.Length == 0)
+                    continue;
+                byUrn[entry.Urn] = entry with { Zones = found };
+                withZones++;
+                var maskPath = Path.Combine(zonesDir, entry.File);
+                if ((force || !File.Exists(maskPath)) && Mask(Path.Combine(hires, entry.File), found, maskPath))
+                    masked++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  {entry.Urn} zones FAILED: {ex.Message}");
+            }
+        }
+        File.WriteAllText(indexPath, JsonSerializer.Serialize(byUrn.Values.OrderBy(e => e.Urn).ToList(), json));
+        Console.WriteLine($"{withZones} van {byUrn.Count} artikelen met Delphers eigen zones, {masked} gemaskeerde pagina's bijgemaakt in {zonesDir}");
         return failed == 0 ? 0 : 1;
+    }
+
+    /// <summary>The article's zones from Delpher's page view: every article on the page is a link
+    /// with data-id (its urn) and data-zones (JSON: rectangles in ALTO pixels with the image they
+    /// stand on, an empty list at the end); only the zones on this page count.</summary>
+    static async Task<float[][]?> ZonesOf(HttpClient http, Entry entry, string dir)
+    {
+        var xmlDir = Path.Combine(dir, "xml");
+        var view = await Cached(http, Path.Combine(xmlDir, entry.Page.Replace(':', '-') + ".pageocr.html"),
+            $"https://www.delpher.nl/nl/pres/view/pageocr?coll=ddd&identifier={Uri.EscapeDataString(entry.Urn)}");
+        var altoPath = Path.Combine(xmlDir, entry.Page.Replace(':', '-') + ".alto.xml");
+        if (!File.Exists(altoPath))
+            return null;
+        var alto = XDocument.Load(altoPath);
+        XNamespace ns = alto.Root!.Name.Namespace;
+        var pageEl = alto.Descendants(ns + "Page").First();
+        float pw = Attr(pageEl, "WIDTH"), ph = Attr(pageEl, "HEIGHT");
+        var pageNo = Regex.Match(entry.Page, @"p0*(\d+)$");
+        foreach (Match tag in Regex.Matches(view, @"<a\b[^>]*\bdata-zones=[^>]*>"))
+        {
+            var id = Regex.Match(tag.Value, @"data-id=""([^""]+)""");
+            if (!id.Success || id.Groups[1].Value != entry.Urn)
+                continue;
+            var raw = Regex.Match(tag.Value, @"data-zones='([^']*)'|data-zones=""([^""]*)""");
+            using var doc = JsonDocument.Parse(WebUtility.HtmlDecode(raw.Groups[1].Success ? raw.Groups[1].Value : raw.Groups[2].Value));
+            var zones = new List<float[]>();
+            foreach (var z in doc.RootElement.EnumerateArray())
+            {
+                if (z.ValueKind != JsonValueKind.Object || !z.TryGetProperty("x", out var x))
+                    continue;
+                // an article that runs on over another page has zones there too: not on this one
+                var image = z.TryGetProperty("image", out var im) ? im.GetString() ?? "" : "";
+                var imageNo = Regex.Match(image, @"_0*(\d+)_access");
+                if (pageNo.Success && imageNo.Success && pageNo.Groups[1].Value != imageNo.Groups[1].Value)
+                    continue;
+                float zx = x.GetSingle(), zy = z.GetProperty("y").GetSingle(), zw = z.GetProperty("w").GetSingle(), zh = z.GetProperty("h").GetSingle();
+                if (zx < 0 || zy < 0 || zx + zw > pw * 1.02f || zy + zh > ph * 1.02f)
+                    throw new InvalidDataException($"zone buiten de ALTO-pagina ({zx},{zy} {zw}x{zh} op {pw}x{ph})");
+                zones.Add([zx / pw, zy / ph, zw / pw, zh / ph]);
+            }
+            return zones.ToArray();
+        }
+        return null; // the page view does not know the article
+    }
+
+    /// <summary>The hi-res page black everywhere but in the zones: what the bundle may carry of an
+    /// article free of rights. False when the page is not cached.</summary>
+    static bool Mask(string pagePath, float[][] zones, string outPath)
+    {
+        if (!File.Exists(pagePath))
+            return false;
+        using var page = SkiaSharp.SKBitmap.Decode(pagePath);
+        if (page is null)
+            return false;
+        using var surface = SkiaSharp.SKSurface.Create(new SkiaSharp.SKImageInfo(page.Width, page.Height));
+        surface.Canvas.Clear(SkiaSharp.SKColors.Black);
+        foreach (var z in zones)
+        {
+            var r = new SkiaSharp.SKRect(z[0] * page.Width, z[1] * page.Height, (z[0] + z[2]) * page.Width, (z[1] + z[3]) * page.Height);
+            surface.Canvas.DrawBitmap(page, r, r);
+        }
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+        File.WriteAllBytes(outPath, data.ToArray());
+        return true;
     }
 
     static async Task<Entry> Fetch(HttpClient http, string urn, string file, string dir, string hires, string thumbs, string? knownPage)

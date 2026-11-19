@@ -11,8 +11,10 @@ writes the title into "Paper" — tidied like the importer does (no cataloguing 
     python tools/delpher_paper_titles.py profiles/beeldengeluid/source --all      # every hit
     python tools/delpher_paper_titles.py profiles/beeldengeluid/source --dry-run  # show, do not write
 
-Titles are cached in <source>/pages/xml/titles.json (the pages cache: not in git), one request per
-article at a walking pace. Standard library only.
+Titles are cached in <source>/pages/xml/titles.json (the pages cache: not in git). FROM THE CACHE
+ONLY unless --kb-online: Delpher's robots.txt forbids automated visitors ("User-agent: * /
+Disallow: /", checked 12-11-2026) and the KB said crawlers bring Delpher down; ask the KB first.
+Standard library only.
 """
 import argparse
 import html
@@ -62,6 +64,8 @@ def main() -> int:
     ap.add_argument("source")
     ap.add_argument("--all", action="store_true", help="every hit, not only the publisher-looking ones")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--kb-online", action="store_true",
+                    help="ask Delpher for titles not in the cache (robots.txt forbids it: agree with the KB first)")
     args = ap.parse_args()
 
     cache_path = os.path.join(args.source, "pages", "xml", "titles.json")
@@ -80,6 +84,9 @@ def main() -> int:
             if not args.all and not PUBLISHERISH.search(paper):
                 continue
             urn = urn_of(hit["Url"])
+            if urn not in cache and not args.kb_online:
+                print(f"  {urn}: niet in de cache; Delpher alleen met --kb-online")
+                continue
             if urn not in cache:
                 try:
                     time.sleep(0.7)

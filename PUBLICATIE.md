@@ -1,6 +1,6 @@
 # Inhoud van deze publicatie
 
-Gepubliceerd op 2026-11-10 uit de privé-ontwikkelrepository (CollectionKit, commit `3f02a868ab`), als momentopname
+Gepubliceerd op 2026-11-19 uit de privé-ontwikkelrepository (CollectionKit, commit `4ccba17370`), als momentopname
 zonder geschiedenis. Werk in uitvoering staat op `next`; `main` volgt bij de mijlpalen.
 
 - `importers/CollectionKit.Import.Delpher` (3 bestanden)

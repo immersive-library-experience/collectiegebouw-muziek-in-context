@@ -2,7 +2,13 @@ using System.Text.Json;
 using System.Xml.Linq;
 
 // usage: CollectionKit.Import.Delpher --source <dir with albums.json[/albums-nl.json]>
-//        [--per-album 2] [--events-only] [--force]
+//        [--per-album 2] [--events-only] [--force] [--kb-online] [--pages [--delpher-zones]]
+//
+// FROM THE CACHE ONLY unless --kb-online. The KB's servers forbid automated visitors in their
+// robots.txt (www.delpher.nl, resolver.kb.nl and jsru.kb.nl: "User-agent: * / Disallow: /",
+// checked 12-11-2026), and in the meeting of 12-11-2026 the KB said crawlers bring Delpher down.
+// Until the KB has agreed a route (KB Dataservices, API key), every request to a KB server needs
+// that flag on purpose; without it the importer reads what is cached and says what is missing.
 //
 // Queries the KB's public SRU endpoint (jsru.kb.nl, collection DDD_artikel — digitised Dutch
 // newspapers; broad up to 1995, and from 1996 to the end of 2005 the Algemeen Dagblad only,
@@ -28,15 +34,19 @@ var albumsNlPath = Path.Combine(source, "albums-nl.json");
 if (File.Exists(albumsNlPath))
     albums.AddRange(JsonSerializer.Deserialize<List<Album>>(File.ReadAllText(albumsNlPath), json)!);
 
-using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+var online = args.Contains("--kb-online");
+using var http = new HttpClient(new KbGate(online)) { Timeout = TimeSpan.FromSeconds(30) };
 http.DefaultRequestHeaders.UserAgent.ParseAdd("CollectionKit-demo/1.0 (collection disclosure prototype)");
+if (!online)
+    Console.WriteLine("Alleen de cache: verzoeken aan de KB (delpher.nl, resolver.kb.nl, jsru.kb.nl) alleen met --kb-online " +
+                      "(robots.txt: Disallow: /; eerst afstemmen met KB Dataservices).");
 XNamespace srw = "http://www.loc.gov/zing/srw/";
 XNamespace dc = "http://purl.org/dc/elements/1.1/";
 
 // --pages: the printed page behind every article and the article's place on it, cached in
 // source/pages for the indoor demo (Pages.cs; rights: see there)
 if (args.Contains("--pages"))
-    return await Pages.Run(source, force, http);
+    return await Pages.Run(source, force, http, zones: args.Contains("--delpher-zones"));
 
 // ── Album pass: the artist in the papers of the release year (headline + deep link) ────────────
 if (!eventsOnly)
@@ -260,6 +270,20 @@ string? Arg(string name)
 {
     var index = Array.IndexOf(args, name);
     return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+}
+
+/// <summary>Lets a request to a KB server (kb.nl, delpher.nl) through only when asked for with
+/// --kb-online; everything else is answered from the caches before it gets here.</summary>
+sealed class KbGate(bool online) : DelegatingHandler(new HttpClientHandler())
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var host = request.RequestUri?.Host ?? "";
+        var kb = host == "kb.nl" || host.EndsWith(".kb.nl") || host == "delpher.nl" || host.EndsWith(".delpher.nl");
+        if (kb && !online)
+            throw new InvalidOperationException($"niet in de cache, en {host} alleen met --kb-online (robots.txt: Disallow: /)");
+        return base.SendAsync(request, cancellationToken);
+    }
 }
 
 sealed record Album(int Nr, string Title, string Artist, int Year);

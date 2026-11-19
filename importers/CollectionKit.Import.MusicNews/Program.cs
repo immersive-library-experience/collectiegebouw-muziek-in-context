@@ -117,9 +117,9 @@ var coversDir = Path.Combine(source, "covers");
 Directory.CreateDirectory(coversDir);
 
 // ── The printed pages behind the Delpher articles (source/pages, written by CollectionKit.Import.Delpher
-//    --pages): the 400 px page is the item's media file, the 1600 px page goes to media-hires, and the
-//    article's rectangle on the page travels as field "knip" (fractions x y w h). Indoor demo only until
-//    the KB and the rights holders have said yes (docs/beeldengeluid-mvp.md). ──────────────────────
+//    --pages): every article gets its page thumbnail (media/) and its page as an unreadable background
+//    (media-backdrop/); an article free of rights also its own zones (media-hires/, field "zones").
+//    The KB's rules below and in docs/beeldengeluid-mvp.md. ──────────────────────────────────────
 var pagesDir = Path.Combine(source, "pages");
 var pagesIndex = Path.Combine(pagesDir, "pages.json");
 var pages = File.Exists(pagesIndex)
@@ -127,37 +127,92 @@ var pages = File.Exists(pagesIndex)
     : new Dictionary<string, PageEntry>();
 if (pages.Count > 0)
     Console.WriteLine($"{pages.Count} krantenpagina's uit {pagesIndex}");
-// What the KB allows (its jurist, 19-10-2026): an article free of rights may be shown whole — that is
-// an article older than 70 years without a named maker (140 with one; none of ours). A protected
-// article may show a thumbnail of its whole page within 200 x 200 px and a snippet of at most 150
-// characters, with a link through to Delpher. The assumption "no named maker" holds for the news
-// items in this set (checked by hand for the handful that are old enough); the year does the rest.
-string Rights(DateOnly date) => date.Year <= DateTime.Now.Year - 71 ? "vrij" : "beschermd";
-string PageFile(string urn, string rights)
+// What the KB allows (its jurist's written answers, 12-11-2026): an article free of rights may be
+// shown, but only the article itself readable (its zones, below); what stands around it on the page
+// can still be protected. Free of rights for certain is an article older than 140 years: every year a
+// whole volume more, which we may add ourselves without the KB checking it (none of ours, 1953-2004).
+// After 70 years only an article whose rights lie with the PUBLISHER: no name of an author or
+// photographer, no initials that can be traced to someone ("van onze verslaggever" is the publisher)
+// and, until the KB has answered that, no press agency. That takes a check by hand per article, so
+// between 70 and 140 years an article is free only when it stands in source/rechtenvrij-bevestigd.json,
+// never by its year alone. Everything else is protected: a thumbnail of its page within 200 x 200 px
+// and a snippet of at most 150 characters, with a link through to Delpher. Both terms run from the
+// end of the year of publication: 70 years = free from 1 January of the 71st year, 140 = of the 141st.
+// --as-of yyyy-mm-dd builds the bundle as it will stand on that day (previews for the KB).
+var rightsAsOf = Arg("--as-of") is { } asOfText ? DateOnly.Parse(asOfText) : DateOnly.FromDateTime(DateTime.Now);
+var confirmedPath = Path.Combine(source, "rechtenvrij-bevestigd.json");
+var confirmedFree = ConfirmedFree(confirmedPath);
+string Rights(string urn, DateOnly date)
 {
-    if (!pages.TryGetValue(urn, out var p))
-        return "";
-    var file = rights == "vrij" ? Path.Combine(pagesDir, p.File) : Path.Combine(pagesDir, "thumb", p.File);
-    return File.Exists(file) ? p.File : "";
+    if (date.Year <= rightsAsOf.Year - 141)
+        return "vrij";
+    if (!confirmedFree.Contains(urn))
+        return "beschermd";
+    if (date.Year <= rightsAsOf.Year - 71)
+        return "vrij";
+    Console.WriteLine($"  let op: {urn} staat in {Path.GetFileName(confirmedPath)}, maar is pas vrij vanaf 1-1-{date.Year + 71}");
+    return "beschermd";
 }
+// source/rechtenvrij-bevestigd.json: {"artikelen": [{"id": "krant:kb:<urn>", "gecontroleerd": "yyyy-mm-dd",
+// "toelichting": "..."}]}, one entry per article someone has checked by hand
+static HashSet<string> ConfirmedFree(string path)
+{
+    var set = new HashSet<string>();
+    if (!File.Exists(path))
+        return set;
+    using var doc = JsonDocument.Parse(File.ReadAllText(path));
+    if (doc.RootElement.TryGetProperty("artikelen", out var list))
+        foreach (var entry in list.EnumerateArray())
+            if (entry.TryGetProperty("id", out var id) && id.GetString() is { Length: > 0 } text)
+                set.Add(text.StartsWith("krant:kb:") ? text["krant:kb:".Length..] : text);
+    return set;
+}
+// What an article's page brings into the bundle (overleg KB 12-11-2026): every article its page
+// thumbnail (media/, at most 200 x 200) and its page as an unreadable background (media-backdrop/,
+// the 400 px rendition: below the resolution at which running text can be read; the Explorer
+// blurs and dims it further, theme knobs pageBackdrop*); an article free of rights in addition
+// its own zones readable (media-hires/, the hi-res page black everywhere else, field "zones").
+// Delpher's article zones (pages.json, CollectionKit.Import.Delpher --pages --delpher-zones) only with
+// --delpher-zones all|<urn,urn>: until the KB has agreed to that source, for the examples it is
+// asked to validate. Without the flag no article is shown readable.
+var zonesFor = Arg("--delpher-zones") is { } zonesArg
+    ? (zonesArg == "all" ? null : zonesArg.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet())
+    : new HashSet<string>();
+bool UseZones(string urn) => zonesFor is null || zonesFor.Contains(urn);
+string PageFile(string urn) =>
+    pages.TryGetValue(urn, out var p) && File.Exists(Path.Combine(pagesDir, "thumb", p.File)) ? p.File : "";
 Dictionary<string, string> WithPage(Dictionary<string, string> fields, string urn, string rights)
 {
     fields["rechten"] = rights;
     if (pages.TryGetValue(urn, out var p))
     {
         fields["pagina"] = p.Page;
-        if (rights == "vrij" && p.Rect is { Length: 4 })
-            fields["knip"] = string.Join(' ', p.Rect.Select(v => v.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture)));
+        // readable only where Delpher itself says the article is: no zones, nothing readable
+        if (rights == "vrij" && UseZones(urn) && p.Zones is { Length: > 0 } && File.Exists(Path.Combine(pagesDir, "zones", p.File)))
+            fields["zones"] = string.Join(';', p.Zones.Select(z =>
+                string.Join(' ', z.Select(v => v.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture)))));
     }
     return fields;
 }
-// the KB's snippet: at most 150 characters, cut at a word
-static string Snippet(string text)
+// the KB's snippet (overleg 12-11-2026): at most 150 characters INCLUDING the headline. The
+// headline comes first, cut at a word when it alone is too long; the opening sentence gets what is
+// left (one space for the break between them), and is dropped when that is too little to say anything.
+const int SnippetMax = 150;
+static string CutAt(string text, int max)
 {
-    if (text.Length <= 150)
+    if (text.Length <= max)
         return text;
-    var cut = text.LastIndexOf(' ', 149);
-    return text[..(cut > 100 ? cut : 149)].TrimEnd(',', ';', ':', ' ') + "\u2026";
+    var cut = text.LastIndexOf(' ', Math.Max(0, max - 2));
+    return text[..(cut > max / 2 ? cut : max - 1)].TrimEnd(',', ';', ':', ' ') + "\u2026";
+}
+static (string Headline, string Opening) Snippet(string headline, string opening)
+{
+    var head = CutAt(headline.Trim(), SnippetMax);
+    var room = SnippetMax - head.Length - 1;
+    var rest = opening.Trim();
+    if (rest.Length == 0 || room < 30)
+        return (head, "");
+    return (head, CutAt(rest, room));
 }
 foreach (var album in albums)
 {
@@ -403,11 +458,11 @@ if (!albumsOnly && File.Exists(delpherPath))
             Console.WriteLine($"  let op: Delpher-artikel {urn} zit al in de bundel: overgeslagen");
             continue;
         }
-        var rights = Rights(DateOnly.Parse(hit.Date));
+        var rights = Rights(urn, DateOnly.Parse(hit.Date));
         items.Add(new CollectionItem
         {
             Id = $"krant:kb:{urn}",
-            Title = Snippet(hit.Headline),
+            Title = Snippet(hit.Headline, "").Headline,
             Creator = hit.Paper,
             Date = DateOnly.Parse(hit.Date),
             Kind = "news",
@@ -415,7 +470,7 @@ if (!albumsOnly && File.Exists(delpherPath))
             // the story panel carries source + deep link
             Summary = "",
             Url = hit.Url,
-            MediaFile = PageFile(urn, rights),
+            MediaFile = PageFile(urn),
             Fields = WithPage(new() { ["bron"] = $"{hit.Paper} (Delpher, Koninklijke Bibliotheek)" }, urn, rights),
             Links = [new ItemLink { TargetId = AlbumKey(albums[albumIndex]), Relation = "context-of" }],
         });
@@ -446,17 +501,18 @@ if (eventHits.Count > 0)
             Console.WriteLine($"  let op: Delpher-artikel {urn} zit al in de bundel: overgeslagen");
             continue;
         }
-        var rights = Rights(date);
+        var rights = Rights(urn, date);
+        var (snippetHead, snippetOpening) = Snippet(hit.Headline, hit.Snippet);
         items.Add(new CollectionItem
         {
             Id = $"krant:kb:{urn}",
-            Title = Snippet(hit.Headline),
+            Title = snippetHead,
             Creator = hit.Paper,
             Date = date,
             Kind = "news",
-            Summary = Snippet(hit.Snippet),
+            Summary = snippetOpening,
             Url = hit.Url,
-            MediaFile = PageFile(urn, rights),
+            MediaFile = PageFile(urn),
             Fields = WithPage(new()
             {
                 ["tag"] = hit.Key.Replace('-', ' '),
@@ -467,6 +523,16 @@ if (eventHits.Count > 0)
         vectors.Add(Average(linkedAlbums.Select(a => a.Features).ToList()));
     }
     Console.WriteLine($"{eventHits.Count} Delpher event articles merged; {retired} editorial cards retired in their favour");
+}
+// the articles old enough for the 70-year rule that nobody has checked by hand yet: protected until they are
+var toCheck = items.Where(i => i.Id.StartsWith("krant:kb:") && i.Fields.GetValueOrDefault("rechten") == "beschermd"
+                               && i.Date is { } d && d.Year <= rightsAsOf.Year - 71).ToList();
+if (toCheck.Count > 0)
+{
+    Console.WriteLine($"{toCheck.Count} krantenartikelen zijn ouder dan 70 jaar maar niet met de hand nagelopen " +
+                      $"(beschermd tot ze in {Path.GetFileName(confirmedPath)} staan):");
+    foreach (var i in toCheck)
+        Console.WriteLine($"  {i.Id}  {i.Date:yyyy-MM-dd}  {i.Title}");
 }
 
 // ── Vectors: e5 text embeddings over title/creator/genre/period/description (same pipeline as
@@ -561,24 +627,33 @@ bundle.Layouts["timeline"] = await new TimeHybridLayoutProvider
 bundle.Layouts["ruimte3d"] = await new UmapLayoutProvider().ComputeLayoutAsync(layoutInput, 3, new Progress<string>(Console.WriteLine));
 
 bundle.Save(output);
-// the hi-res pages are rebuilt from scratch: what was allowed last time need not be allowed now
-var hiresOut = Path.Combine(output, "media-hires");
-if (Directory.Exists(hiresOut))
-    Directory.Delete(hiresOut, recursive: true);
+// the page renditions are rebuilt from scratch: what was allowed last time need not be allowed now
+foreach (var dirName in new[] { "media-hires", "media-backdrop" })
+    if (Directory.Exists(Path.Combine(output, dirName)))
+        Directory.Delete(Path.Combine(output, dirName), recursive: true);
 foreach (var item in bundle.Items.Where(i => i.MediaFile.Length > 0))
 {
-    // a sleeve from the covers cache, or a newspaper page from the pages cache (with its 1600 px
-    // rendition beside it in media-hires, where the fullscreen stages look first)
+    // a sleeve from the covers cache, or a newspaper page from the pages cache
     var cover = Path.Combine(coversDir, item.MediaFile);
-    var free = item.Fields.TryGetValue("rechten", out var r) && r == "vrij";
-    // a protected article travels as its 200 px page thumbnail only; a free one as the page itself
-    var page = Path.Combine(pagesDir, free ? item.MediaFile : Path.Combine("thumb", item.MediaFile));
-    File.Copy(File.Exists(cover) ? cover : page, Path.Combine(output, "media", item.MediaFile), overwrite: true);
-    var pageHires = Path.Combine(pagesDir, "hires", item.MediaFile);
-    if (!File.Exists(cover) && free && File.Exists(pageHires))
+    if (File.Exists(cover) || !item.Fields.ContainsKey("rechten"))
+    {
+        File.Copy(cover, Path.Combine(output, "media", item.MediaFile), overwrite: true);
+        continue;
+    }
+    // a newspaper page (see PageFile): thumbnail, unreadable background, and only for an article
+    // free of rights with known zones the hi-res page masked to them
+    File.Copy(Path.Combine(pagesDir, "thumb", item.MediaFile), Path.Combine(output, "media", item.MediaFile), overwrite: true);
+    var backdrop = Path.Combine(pagesDir, item.MediaFile);
+    if (File.Exists(backdrop))
+    {
+        Directory.CreateDirectory(Path.Combine(output, "media-backdrop"));
+        File.Copy(backdrop, Path.Combine(output, "media-backdrop", item.MediaFile), overwrite: true);
+    }
+    var zonesOnly = Path.Combine(pagesDir, "zones", item.MediaFile);
+    if (item.Fields.ContainsKey("zones") && File.Exists(zonesOnly))
     {
         Directory.CreateDirectory(Path.Combine(output, "media-hires"));
-        File.Copy(pageHires, Path.Combine(output, "media-hires", item.MediaFile), overwrite: true);
+        File.Copy(zonesOnly, Path.Combine(output, "media-hires", item.MediaFile), overwrite: true);
     }
 }
 Console.WriteLine($"TouchDesigner export → {TdExport.WriteTsv(bundle, output)}");
@@ -752,7 +827,7 @@ sealed record DelpherHit(int AlbumNr, string Date, string Headline, string Paper
 
 /// <summary>One printed page behind a Delpher article (pages/pages.json, written by CollectionKit.Import.Delpher
 /// --pages): the page's KB id, its JPEG in the pages cache, and the article's rectangle on it (x y w h as fractions).</summary>
-sealed record PageEntry(string Urn, string Page, string File, float[]? Rect);
+sealed record PageEntry(string Urn, string Page, string File, float[]? Rect, float[][]? Zones = null);
 
 /// <summary>One crafted period-style article (news.json), linked to its album (0 = link by year).</summary>
 sealed record AlbumNews(string Date, int AlbumNr, string Headline, string Snippet);
